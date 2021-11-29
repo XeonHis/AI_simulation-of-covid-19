@@ -6,8 +6,7 @@ import time
 import math
 import random
 import sys
-from collections import namedtuple
-
+from collections import namedtuple, deque
 
 sys.path.append('virl')
 import virl
@@ -41,6 +40,29 @@ b_size = 32
 Transition = namedtuple('Transition', ('state', 'action', 'next_state', 'reward'))
 # memory = np.zeros((memory_size, 10))  # S(4)   A(1)   S_(4)   R(1)
 MAX_EPISODE = 2000
+
+
+class ReplayMemory():
+    """
+    Implement a replay buffer using the deque collection
+    """
+
+    def __init__(self, capacity):
+        self.capacity = capacity
+        self.memory = deque(maxlen=capacity)
+
+    def push(self, *args):
+        """Saves a transition."""
+        self.memory.append(Transition(*args))
+
+    def pop(self):
+        return self.memoery.pop()
+
+    def sample(self, batch_size):
+        return random.sample(self.memory, batch_size)
+
+    def __len__(self):
+        return len(self.memory)
 
 
 def run_dqn(_env, _approximator, _approximator_target):
