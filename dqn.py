@@ -6,6 +6,8 @@ import time
 import math
 import random
 import sys
+from collections import namedtuple
+
 
 sys.path.append('virl')
 import virl
@@ -36,7 +38,8 @@ epsilon = 0.1
 update_time = 50
 gama = 0.9
 b_size = 32
-memory = np.zeros((memory_size, 10))  # S(4)   A(1)   S_(4)   R(1)
+Transition = namedtuple('Transition', ('state', 'action', 'next_state', 'reward'))
+# memory = np.zeros((memory_size, 10))  # S(4)   A(1)   S_(4)   R(1)
 MAX_EPISODE = 2000
 
 
