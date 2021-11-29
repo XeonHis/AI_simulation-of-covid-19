@@ -99,14 +99,14 @@ def run_dqn(_env, _approximator, _approximator_target):
                 batch = Transition(*zip(*transitions))
 
                 b_s = torch.Tensor(np.array(batch.state))
-                b_a = torch.Tensor(np.array(batch.action)).long()
+                b_a = torch.Tensor(np.array(batch.action)).unsqueeze(1).long()
                 b_s_ = torch.Tensor(np.array(batch.next_state))
-                b_r = torch.Tensor(np.array(batch.reward))
-                print(b_s.shape, b_a.shape, b_s_.shape, b_r.shape)
+                b_r = torch.Tensor(np.array(batch.reward)).unsqueeze(1)
+                # print(b_s.shape, b_a.shape, b_s_.shape, b_r.shape)
 
                 ori_q = _approximator(b_s)
                 q = ori_q.gather(1, b_a)
-                q_next = _approximator_target(b_s_).detach().max(1)[0].reshape(b_size, 1)
+                q_next = _approximator_target(b_s_).detach().max(1)[0].reshape(memory_size, 1)
                 tq = b_r + gama * q_next
                 loss = _approximator.mse(q, tq)
                 _approximator.opt.zero_grad()
