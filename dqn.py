@@ -40,7 +40,7 @@ memory = np.zeros((memory_size, 10))  # S(4)   A(1)   S_(4)   R(1)
 MAX_EPISODE = 2000
 
 
-def run_deepQ(_env, approximator, approximator_target):
+def run_deepQ(_env, _approximator, _approximator_target):
     memory_count = 0
     learn_time = 0
     best_reward = -np.inf
@@ -53,7 +53,7 @@ def run_deepQ(_env, approximator, approximator_target):
             if np.random.rand() <= epsilon:
                 action = random.randrange(4)
             else:
-                out = approximator(torch.Tensor(observation)).detach()
+                out = _approximator(torch.Tensor(observation)).detach()
                 action = torch.argmax(out).data.item()
 
             observation_, reward, done, _ = _env.step(action)
@@ -71,7 +71,7 @@ def run_deepQ(_env, approximator, approximator_target):
             if memory_count >= memory_size:  # Start to learn
                 learn_time += 1  # Learn once
                 if learn_time % update_time == 0:  # Sync two nets
-                    approximator_target.load_state_dict(approximator.state_dict())
+                    _approximator_target.load_state_dict(_approximator.state_dict())
                 else:
                     rdp = random.randint(0, memory_size - b_size - 1)
                     b_s = torch.Tensor(memory[rdp:rdp + b_size, 0:4])
@@ -79,26 +79,26 @@ def run_deepQ(_env, approximator, approximator_target):
                     b_s_ = torch.Tensor(memory[rdp:rdp + b_size, 5:9])
                     b_r = torch.Tensor(memory[rdp:rdp + b_size, 9:10])
 
-                    ori_q = approximator(b_s)
+                    ori_q = _approximator(b_s)
                     q = ori_q.gather(1, b_a)
-                    q_next = approximator_target(b_s_).detach().max(1)[0].reshape(b_size, 1)
+                    q_next = _approximator_target(b_s_).detach().max(1)[0].reshape(b_size, 1)
                     tq = b_r + gama * q_next
-                    loss = approximator.mse(q, tq)
-                    approximator.opt.zero_grad()
+                    loss = _approximator.mse(q, tq)
+                    _approximator.opt.zero_grad()
                     loss.backward()
-                    approximator.opt.step()
+                    _approximator.opt.step()
 
             step += 1
             if done:
                 print('{}/{} Episode Reward={}'.format(i_episode, MAX_EPISODE, episode_reward))
                 if episode_reward > best_reward:
-                    torch.save({'model': approximator.state_dict()}, 'covid.pth')
+                    torch.save({'model': _approximator.state_dict()}, 'covid.pth')
                     print('****NEW MODEL****')
                     best_reward = episode_reward
                 break
 
 
-def test_DQN(_env, _net):
+def test_dqn(_env, _net):
     test_model = _net
     state_dict = torch.load('covid.pth')
     test_model.load_state_dict(state_dict['model'])
@@ -121,4 +121,4 @@ env = virl.Epidemic()
 
 run_deepQ(env, net, net2)
 
-# test_DQN(env, net)
+# test_dqn(env, net)
