@@ -4,3 +4,18 @@
 
 # .idea
 .idea/
+
+# pycache
+__pycache__/
+
+# run exps
+runs/
+
+# val exps
+vals/
+
+# virl env
+virl/
+
+# demo
+demo/
