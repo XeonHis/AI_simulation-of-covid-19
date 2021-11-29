@@ -40,7 +40,7 @@ memory = np.zeros((memory_size, 10))  # S(4)   A(1)   S_(4)   R(1)
 MAX_EPISODE = 2000
 
 
-def run_deepQ(_env, _approximator, _approximator_target):
+def run_dqn(_env, _approximator, _approximator_target):
     memory_count = 0
     learn_time = 0
     best_reward = -np.inf
@@ -119,6 +119,6 @@ net = DeepQNetwork()
 net2 = DeepQNetwork()
 env = virl.Epidemic()
 
-run_deepQ(env, net, net2)
+run_dqn(env, net, net2)
 
 # test_dqn(env, net)
