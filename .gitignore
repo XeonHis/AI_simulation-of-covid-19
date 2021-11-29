@@ -19,3 +19,7 @@ virl/
 
 # demo
 demo/
+
+# model name
+*.pth
+*.h5
