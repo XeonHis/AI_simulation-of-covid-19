@@ -142,7 +142,6 @@ def test_dqn(_env):
     print(total_reward)
 
 
-
 def train():
     net = DeepQNetwork()
     net2 = DeepQNetwork()
