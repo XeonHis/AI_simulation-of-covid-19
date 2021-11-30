@@ -1,19 +1,14 @@
 import torch
 import torch.nn as nn
 import numpy as np
-import pandas as pd
-import time
-import math
 import random
 import sys
 from collections import namedtuple, deque
 from tensorboardX import SummaryWriter
+from matplotlib import pyplot as plt
 
 sys.path.append('virl')
 import virl
-
-
-# np.random.seed(2)
 
 
 class DeepQNetwork(nn.Module):
@@ -21,7 +16,6 @@ class DeepQNetwork(nn.Module):
         super(DeepQNetwork, self).__init__()
         self.fc = nn.Sequential(
             nn.Linear(4, 50),
-            # nn.Dropout(0.5),
             nn.ReLU(),
             nn.Linear(50, 4)
         )
@@ -51,19 +45,53 @@ class ReplayMemory:
         return len(self.memory)
 
 
-memory_size = 2000
-epsilon = 0.1
-update_time = 100
-gamma = 0.9
-Transition = namedtuple('Transition', ('state', 'action', 'next_state', 'reward'))
-MAX_EPISODE = 2000
-memory = ReplayMemory(memory_size)
+def setup_seed(seed):
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    np.random.seed(seed)
+    random.seed(seed)
+    torch.backends.cudnn.deterministic = True
+
+
+def plot_figure(_actions, _states, _rewards):
+    # start a figure with 2 subplot
+    fig, axes = plt.subplots(1, 3, figsize=(20, 8))
+    labels = ['s[0]: susceptibles', 's[1]: infectious', 's[2]: quarantined', 's[3]: recovereds']
+    _states = np.array(_states)
+
+    # plot state evolution on the left subplot
+    for i in range(4):
+        axes[0].plot(_states[:, i], label=labels[i])
+    axes[0].set_title('State')
+    axes[0].set_xlabel('Weeks since start of epidemic')
+    axes[0].set_ylabel('State s(t)')
+    axes[0].legend()
+
+    # plot reward evolution on the right subplot
+    axes[1].plot(_rewards)
+    axes[1].set_title('Reward')
+    axes[1].set_xlabel('Weeks since start of epidemic')
+    axes[1].set_ylabel('Reward r(t)')
+
+    axes[2].plot(_actions)
+    axes[2].set_title('Action')
+    axes[2].set_xlabel('Weeks since start of epidemic')
+    axes[2].set_ylabel('Action a(t)')
+
+    print('Total reward for this episode is ', np.sum(_rewards))
+    plt.show()
 
 
 def run_dqn(_env, _approximator, _approximator_target):
     writer = SummaryWriter()
     best_reward = -np.inf
     learn_step = 0
+    epsilon = 0.1
+    epsilon_min = 0.01
+    decay_factor = 0.995
+    best_actions = None
+    best_rewards = None
+    best_states = None
     for i_episode in range(MAX_EPISODE):
         state = _env.reset()
         step = 0
@@ -79,8 +107,12 @@ def run_dqn(_env, _approximator, _approximator_target):
                 out = _approximator(torch.Tensor(state))
                 action = torch.argmax(out).data.item()
 
-            actions.append(action)
             next_state, reward, done, _ = _env.step(action)
+
+            actions.append(action)
+            rewards.append(reward)
+            states.append(state)
+
             state = next_state
             episode_reward += reward
 
@@ -107,39 +139,59 @@ def run_dqn(_env, _approximator, _approximator_target):
                 _approximator.opt.zero_grad()
                 loss.backward()
                 _approximator.opt.step()
-                writer.add_scalar('loss', np.sum((np.sum(tq.numpy()) - np.sum(q.detach().numpy()))), learn_step)
+
+                writer.add_scalar('loss', loss.detach().numpy(), learn_step)
 
             if done:
                 print('{}/{} Episode Reward={}'.format(i_episode, MAX_EPISODE, episode_reward))
                 if episode_reward >= best_reward:
-                    torch.save(_approximator, 'covid_mse.pth')
+                    torch.save(_approximator, 'covid.pth')
                     f = open('actions.txt', 'w+')
                     f.write(str(i_episode) + ':' + str(actions) + str(episode_reward) + '\n')
                     f.close()
                     print('****NEW MODEL****')
                     best_reward = episode_reward
+                    best_actions = actions.copy()
+                    best_states = states.copy()
+                    best_rewards = rewards.copy()
                 break
+
+            if epsilon > epsilon_min:
+                epsilon *= decay_factor
             step += 1
+
+        if i_episode == MAX_EPISODE - 1:
+            torch.save(_approximator, 'covid_last.pth')
+            f = open('actions.txt', 'a+')
+            f.write('**LAST** ' + str(i_episode) + ':' + str(actions) + str(episode_reward))
+            f.close()
+            print('****LAST MODEL****')
+    plot_figure(best_actions, best_states, best_rewards)
 
 
 def test_dqn(_env):
-    model = torch.load('covid_mse.pth').eval()
+    model = torch.load('covid.pth').eval()
     torch.no_grad()
+    print(model)
 
     _s = _env.reset()
     done = False
-    total_reward = 0
+    rewards = []
+    states = []
+    actions = []
     while not done:
         out = model(torch.Tensor(_s))
         action = torch.argmax(out).data.item()
-        print(action)
         _next_state, reward, done, _ = _env.step(action)
+        rewards.append(reward)
+        states.append(_s)
+        actions.append(action)
         _s = _next_state
-        total_reward += reward
-    print(total_reward)
+    plot_figure(actions, states, rewards)
 
 
 def train():
+    # setup_seed(seed)
     net = DeepQNetwork()
     net2 = DeepQNetwork()
     for m in net.modules():
@@ -152,7 +204,14 @@ def train():
 
 
 if __name__ == '__main__':
+    # seed = 1
+    memory_size = 2000
+    update_time = 10
+    gamma = 0.9
+    Transition = namedtuple('Transition', ('state', 'action', 'next_state', 'reward'))
+    MAX_EPISODE = 1000
+    memory = ReplayMemory(memory_size)
     env = virl.Epidemic()
-    # train()
+    train()
 
-    test_dqn(env)
+    # test_dqn(env)
