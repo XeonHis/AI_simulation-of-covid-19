@@ -9,17 +9,17 @@
 __pycache__/
 
 # run exps
-runs/
+# runs/
 
 # val exps
-vals/
+# vals/
 
 # virl env
-virl/
+# virl/
 
 # demo
-demo/
+# demo/
 
 # model name
-*.pth
-*.h5
+# *.pth
+# *.h5
