@@ -20,11 +20,9 @@ class DeepQNetwork(nn.Module):
     def __init__(self):
         super(DeepQNetwork, self).__init__()
         self.fc = nn.Sequential(
-            nn.Linear(4, 24),
+            nn.Linear(4, 50),
             nn.ReLU(),
-            nn.Linear(24, 24),
-            nn.ReLU(),
-            nn.Linear(24, 4)
+            nn.Linear(50, 4)
         )
         self.loss_func = nn.SmoothL1Loss()
         self.opt = torch.optim.Adam(self.parameters(), lr=0.01)
@@ -54,9 +52,8 @@ class ReplayMemory:
 
 memory_size = 500
 epsilon = 0.1
-update_time = 10
+update_time = 100
 gamma = 0.9
-b_size = 32
 Transition = namedtuple('Transition', ('state', 'action', 'next_state', 'reward'))
 MAX_EPISODE = 1000
 memory = ReplayMemory(memory_size)
@@ -109,13 +106,13 @@ def run_dqn(_env, _approximator, _approximator_target):
                 _approximator.opt.zero_grad()
                 loss.backward()
                 _approximator.opt.step()
-                writer.add_scalar('loss', np.abs(torch.mean(tq - q.detach().numpy())), learn_step)
+                writer.add_scalar('loss', np.sum((np.sum(tq.numpy()) - np.sum(q.detach().numpy()))), learn_step)
 
             if done:
                 print('{}/{} Episode Reward={}'.format(i_episode, MAX_EPISODE, episode_reward))
                 if episode_reward >= best_reward:
-                    torch.save(_approximator, 'test_model/covid' + str(i_episode) + '.pth')
-                    f = open('actions.txt', 'a+')
+                    torch.save(_approximator, 'covid.pth')
+                    f = open('actions.txt', 'w+')
                     f.write(str(i_episode) + ':' + str(actions) + str(episode_reward) + '\n')
                     f.close()
                     print('****NEW MODEL****')
@@ -125,7 +122,7 @@ def run_dqn(_env, _approximator, _approximator_target):
 
 
 def test_dqn(_env):
-    model = torch.load('test_model/covid60.pth').eval()
+    model = torch.load('covid.pth').eval()
     torch.no_grad()
 
     _s = _env.reset()
@@ -143,8 +140,8 @@ def test_dqn(_env):
 
 net = DeepQNetwork()
 net2 = DeepQNetwork()
-env = virl.Epidemic()
+env = virl.Epidemic(problem_id=5)
 
-run_dqn(env, net, net2)
+# run_dqn(env, net, net2)
 
-# test_dqn(env)
+test_dqn(env)
