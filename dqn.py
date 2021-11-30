@@ -24,7 +24,7 @@ class DeepQNetwork(nn.Module):
             nn.ReLU(),
             nn.Linear(50, 4)
         )
-        self.loss_func = nn.SmoothL1Loss()
+        self.loss_func = nn.MSELoss()
         self.opt = torch.optim.Adam(self.parameters(), lr=0.01)
 
     def forward(self, inputs):
@@ -50,7 +50,7 @@ class ReplayMemory:
         return len(self.memory)
 
 
-memory_size = 500
+memory_size = 2000
 epsilon = 0.1
 update_time = 100
 gamma = 0.9
@@ -111,7 +111,7 @@ def run_dqn(_env, _approximator, _approximator_target):
             if done:
                 print('{}/{} Episode Reward={}'.format(i_episode, MAX_EPISODE, episode_reward))
                 if episode_reward >= best_reward:
-                    torch.save(_approximator, 'covid.pth')
+                    torch.save(_approximator, 'covid_mse.pth')
                     f = open('actions.txt', 'w+')
                     f.write(str(i_episode) + ':' + str(actions) + str(episode_reward) + '\n')
                     f.close()
@@ -122,7 +122,7 @@ def run_dqn(_env, _approximator, _approximator_target):
 
 
 def test_dqn(_env):
-    model = torch.load('covid.pth').eval()
+    model = torch.load('covid_mse.pth').eval()
     torch.no_grad()
 
     _s = _env.reset()
@@ -140,8 +140,16 @@ def test_dqn(_env):
 
 net = DeepQNetwork()
 net2 = DeepQNetwork()
-env = virl.Epidemic(problem_id=5)
+env = virl.Epidemic()
 
-# run_dqn(env, net, net2)
+for m in net.modules():
+    if isinstance(m, nn.Linear):
+        nn.init.xavier_uniform_(m.weight)
 
-test_dqn(env)
+for m in net2.modules():
+    if isinstance(m, nn.Linear):
+        nn.init.xavier_uniform_(m.weight)
+
+run_dqn(env, net, net2)
+
+# test_dqn(env)

@@ -88,49 +88,56 @@ class DQN(object):
         self.optimizer.step()
 
 
-# dqn = DQN()
-#
-# print('\nCollecting experience...')
-# best_reward = -np.inf
-# for i_episode in range(400):
-#     s = env.reset()
-#     ep_r = 0
-#     while True:
-#         a = dqn.choose_action(s)
-#
-#         # take action
-#         s_, r, done, info = env.step(a)
-#
-#         dqn.store_transition(s, a, r, s_)
-#
-#         ep_r += r
-#         if dqn.memory_counter > MEMORY_CAPACITY:
-#             dqn.learn()
-#             if done:
-#                 if ep_r >= best_reward:
-#                     torch.save(dqn, 'covid2.pth')
-#                     print('****NEW MODEL****')
-#                     best_reward = ep_r
-#
-#                 print('Ep: ', i_episode,
-#                       '| Ep_r: ', round(ep_r[0], 2))
-#
-#         if done:
-#             break
-#         s = s_
+def train():
+    dqn = DQN()
+
+    print('\nCollecting experience...')
+    best_reward = -np.inf
+    for i_episode in range(400):
+        s = env.reset()
+        ep_r = 0
+        while True:
+            a = dqn.choose_action(s)
+
+            # take action
+            s_, r, done, info = env.step(a)
+
+            dqn.store_transition(s, a, r, s_)
+
+            ep_r += r
+            if dqn.memory_counter > MEMORY_CAPACITY:
+                dqn.learn()
+                if done:
+                    if ep_r >= best_reward:
+                        torch.save(dqn, 'covid2.pth')
+                        print('****NEW MODEL****')
+                        best_reward = ep_r
+
+                    print('Ep: ', i_episode,
+                          '| Ep_r: ', round(ep_r[0], 2))
+
+            if done:
+                break
+            s = s_
 
 
-model = torch.load('covid2.pth')
-torch.no_grad()
+def test():
+    model = torch.load('covid2.pth')
+    torch.no_grad()
 
-_s = env.reset()
-done = False
-total_reward = 0
-while not done:
-    actions_value = model.eval_net.forward(torch.unsqueeze(torch.FloatTensor(_s), 0))
-    action = torch.max(actions_value, 1)[1].data.numpy()
-    print(action)
-    _next_state, reward, done, _ = env.step(action)
-    _s = _next_state
-    total_reward += reward
-print(total_reward)
+    _s = env.reset()
+    done = False
+    total_reward = 0
+    while not done:
+        actions_value = model.eval_net.forward(torch.unsqueeze(torch.FloatTensor(_s), 0))
+        action = torch.max(actions_value, 1)[1].data.numpy()
+        print(action)
+        _next_state, reward, done, _ = env.step(action)
+        _s = _next_state
+        total_reward += reward
+    print(total_reward)
+
+
+if __name__ == '__main__':
+    train()
+    # test()
