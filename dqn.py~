@@ -129,7 +129,7 @@ def run_dqn(_env, _approximator, _approximator_target):
 
 
 def test_dqn(_env):
-    model = torch.load('test_model/covid60.pth').eval()
+    model = torch.load('test_model/covid59.pth').eval()
     torch.no_grad()
 
     _s = _env.reset()
