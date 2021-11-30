@@ -21,6 +21,10 @@ class DeepQNetwork(nn.Module):
         super(DeepQNetwork, self).__init__()
         self.fc = nn.Sequential(
             nn.Linear(4, 50),
+            nn.Dropout(0.5),
+            nn.ReLU(),
+            nn.Linear(50, 50),
+            nn.Dropout(0.5),
             nn.ReLU(),
             nn.Linear(50, 4)
         )
@@ -55,7 +59,7 @@ epsilon = 0.1
 update_time = 100
 gamma = 0.9
 Transition = namedtuple('Transition', ('state', 'action', 'next_state', 'reward'))
-MAX_EPISODE = 1000
+MAX_EPISODE = 400
 memory = ReplayMemory(memory_size)
 
 
@@ -138,18 +142,21 @@ def test_dqn(_env):
     print(total_reward)
 
 
-net = DeepQNetwork()
-net2 = DeepQNetwork()
-env = virl.Epidemic()
 
-for m in net.modules():
-    if isinstance(m, nn.Linear):
-        nn.init.xavier_uniform_(m.weight)
+def train():
+    net = DeepQNetwork()
+    net2 = DeepQNetwork()
+    env = virl.Epidemic()
+    for m in net.modules():
+        if isinstance(m, nn.Linear):
+            nn.init.xavier_uniform_(m.weight)
+    for m in net2.modules():
+        if isinstance(m, nn.Linear):
+            nn.init.xavier_uniform_(m.weight)
+    run_dqn(env, net, net2)
 
-for m in net2.modules():
-    if isinstance(m, nn.Linear):
-        nn.init.xavier_uniform_(m.weight)
 
-run_dqn(env, net, net2)
+if __name__ == '__main__':
+    train()
 
-# test_dqn(env)
+    # test_dqn(env)
