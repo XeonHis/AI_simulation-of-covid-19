@@ -113,7 +113,7 @@ def run_dqn(_env, _approximator, _approximator_target):
                 _approximator.opt.zero_grad()
                 loss.backward()
                 _approximator.opt.step()
-                writer.add_scalar('loss', np.abs(torch.mean(tq - q)), learn_step)
+                writer.add_scalar('loss', np.abs(torch.mean(tq - q.detach().numpy())), learn_step)
 
             if done:
                 print('{}/{} Episode Reward={}'.format(i_episode, MAX_EPISODE, episode_reward))
@@ -149,6 +149,6 @@ net = DeepQNetwork()
 net2 = DeepQNetwork()
 env = virl.Epidemic()
 
-# run_dqn(env, net, net2)
+run_dqn(env, net, net2)
 
-test_dqn(env)
+# test_dqn(env)
