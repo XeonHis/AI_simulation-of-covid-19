@@ -104,10 +104,6 @@ def run_dqn(_env, _approximator, _approximator_target):
 
                 ori_q = _approximator(b_s)
                 q = ori_q.gather(1, b_a)
-                # temp1 = _approximator_target(b_s_)
-                # temp2 = temp1.detach().max(1)[0]
-                # temp3 = temp2.reshape(memory_size, 1)
-                # q_next = temp3
                 tq = b_r + gamma * _approximator_target(b_s_).detach().max(1)[0].unsqueeze(1)
                 loss = _approximator.loss_func(q, tq)
                 _approximator.opt.zero_grad()
