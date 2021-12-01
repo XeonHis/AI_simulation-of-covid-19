@@ -6,6 +6,7 @@ import sys
 from collections import namedtuple, deque
 from tensorboardX import SummaryWriter
 from matplotlib import pyplot as plt
+import torch.nn.functional as F
 
 sys.path.append('virl')
 import virl
@@ -15,14 +16,19 @@ class DeepQNetwork(nn.Module):
     def __init__(self):
         super(DeepQNetwork, self).__init__()
         self.fc = nn.Sequential(
-            nn.Linear(4, 50),
+            nn.Linear(4, 24),
             nn.ReLU(),
-            nn.Linear(50, 4)
+            nn.Dropout(0.5),
+            nn.Linear(24, 24),
+            nn.ReLU(),
+            nn.Dropout(0.5),
+            nn.Linear(24, 4)
         )
         self.loss_func = nn.MSELoss()
-        self.opt = torch.optim.Adam(self.parameters(), lr=0.01)
+        self.opt = torch.optim.Adam(self.parameters(), lr=0.02)
 
     def forward(self, inputs):
+        inputs = F.normalize(inputs, dim=0)
         return self.fc(inputs)
 
 
@@ -43,14 +49,6 @@ class ReplayMemory:
 
     def __len__(self):
         return len(self.memory)
-
-
-def setup_seed(seed):
-    torch.manual_seed(seed)
-    torch.cuda.manual_seed_all(seed)
-    np.random.seed(seed)
-    random.seed(seed)
-    torch.backends.cudnn.deterministic = True
 
 
 def plot_figure(_actions, _states, _rewards):
@@ -88,7 +86,7 @@ def run_dqn(_env, _approximator, _approximator_target):
     learn_step = 0
     epsilon = 0.1
     epsilon_min = 0.01
-    decay_factor = 0.995
+    decay_factor = 0.99995
     best_actions = None
     best_rewards = None
     best_states = None
@@ -145,7 +143,8 @@ def run_dqn(_env, _approximator, _approximator_target):
             if done:
                 print('{}/{} Episode Reward={}'.format(i_episode, MAX_EPISODE, episode_reward))
                 if episode_reward >= best_reward:
-                    torch.save(_approximator, 'covid.pth')
+                    # torch.save(_approximator, 'covid.pth')
+                    torch.save(_approximator.state_dict(), 'model/relu/lr={}_msize={}.pkl'.format('0.02', '5'))
                     f = open('actions.txt', 'w+')
                     f.write(str(i_episode) + ':' + str(actions) + str(episode_reward) + '\n')
                     f.close()
@@ -161,7 +160,7 @@ def run_dqn(_env, _approximator, _approximator_target):
             step += 1
 
         if i_episode == MAX_EPISODE - 1:
-            torch.save(_approximator, 'covid_last.pth')
+            torch.save(_approximator.state_dict(), 'model/relu/lr={}_msize={}_last.pkl'.format('0.02', '2'))
             f = open('actions.txt', 'a+')
             f.write('**LAST** ' + str(i_episode) + ':' + str(actions) + str(episode_reward))
             f.close()
@@ -169,10 +168,8 @@ def run_dqn(_env, _approximator, _approximator_target):
     plot_figure(best_actions, best_states, best_rewards)
 
 
-def test_dqn(_env):
-    model = torch.load('covid.pth').eval()
-    torch.no_grad()
-    print(model)
+def test_dqn(_env, _net):
+    _net.load_state_dict(torch.load('model/relu/lr=0.02_msize=5_last.pkl'))
 
     _s = _env.reset()
     done = False
@@ -180,7 +177,7 @@ def test_dqn(_env):
     states = []
     actions = []
     while not done:
-        out = model(torch.Tensor(_s))
+        out = _net(torch.Tensor(_s))
         action = torch.argmax(out).data.item()
         _next_state, reward, done, _ = _env.step(action)
         rewards.append(reward)
@@ -190,28 +187,26 @@ def test_dqn(_env):
     plot_figure(actions, states, rewards)
 
 
-def train():
-    # setup_seed(seed)
-    net = DeepQNetwork()
-    net2 = DeepQNetwork()
+def train(_net, _net2):
     for m in net.modules():
         if isinstance(m, nn.Linear):
             nn.init.xavier_uniform_(m.weight)
     for m in net2.modules():
         if isinstance(m, nn.Linear):
             nn.init.xavier_uniform_(m.weight)
-    run_dqn(env, net, net2)
+    run_dqn(env, _net, _net2)
 
 
 if __name__ == '__main__':
-    # seed = 1
-    memory_size = 2000
-    update_time = 10
+    net = DeepQNetwork()
+    net2 = DeepQNetwork()
+    memory_size = 52 * 2
+    update_time = 100
     gamma = 0.9
     Transition = namedtuple('Transition', ('state', 'action', 'next_state', 'reward'))
     MAX_EPISODE = 1000
     memory = ReplayMemory(memory_size)
     env = virl.Epidemic()
-    train()
+    # train(net, net2)
 
-    # test_dqn(env)
+    test_dqn(env, net)
