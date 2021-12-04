@@ -250,7 +250,7 @@ class ReplayMemory():
         self.memory.append(Transition(*args))
 
     def pop(self):
-        return self.memoery.pop()
+        return self.memory.pop()
 
     def sample(self, batch_size):
         return random.sample(self.memory, batch_size)
@@ -274,11 +274,11 @@ stats = q_learning_nn(env, nn_func_approximator, nn_func_approximator_target, 20
                       epsilon_init=0.1, epsilon_decay=0.995, epsilon_min=0.001,
                       fn_model_in=None, fn_model_out="cartpole_temp.h5")
 
-nn_func_approximator.alpha = 0.0
-epsilon_fixed = 0.0
-stats_show = q_learning_nn(env, nn_func_approximator, nn_func_approximator_target, 1, max_steps_per_episode=500,
-                           epsilon_init=epsilon_fixed, epsilon_decay=1.0, epsilon_min=epsilon_fixed,
-                           show=True, fn_model_in="cartpole_temp.h5")
+# nn_func_approximator.alpha = 0.0
+# epsilon_fixed = 0.0
+# stats_show = q_learning_nn(env, nn_func_approximator, nn_func_approximator_target, 1, max_steps_per_episode=500,
+#                            epsilon_init=epsilon_fixed, epsilon_decay=1.0, epsilon_min=epsilon_fixed,
+#                            show=True, fn_model_in="cartpole_temp.h5")
 #
 # nn_func_approximator.alpha = 0.0
 # epsilon_fixed = 0.0

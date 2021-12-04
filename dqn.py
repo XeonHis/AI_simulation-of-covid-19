@@ -17,13 +17,13 @@ class DeepQNetwork(nn.Module):
         super(DeepQNetwork, self).__init__()
         self.lr = learning_rate
         self.fc = nn.Sequential(
-            nn.Linear(4, 24),
+            nn.Linear(4, 64),
             nn.ReLU(),
-            nn.Dropout(0.5),
-            nn.Linear(24, 24),
+            # nn.Dropout(0.1),
+            nn.Linear(64, 64),
             nn.ReLU(),
-            nn.Dropout(0.5),
-            nn.Linear(24, 4)
+            # nn.Dropout(0.1),
+            nn.Linear(64, 4)
         )
         self.loss_func = nn.MSELoss()
         self.opt = torch.optim.Adam(self.parameters(), lr=learning_rate)
@@ -84,17 +84,18 @@ def plot_figure(_actions, _states, _rewards):
 
 def run_dqn(_env, _approximator, _approximator_target, _batch_size, _max_episode, _memory_size, _update_time, _gamma,
             _transition, _memory, _learning_rate):
-    writer = SummaryWriter(
-        'runs_model/model_episode={}_lr={}_bsize={}_utime={}'.format(_max_episode, _learning_rate, _batch_size,
-                                                                     _update_time))
+    # writer = SummaryWriter(
+    #     'runs_model/model_episode={}_lr={}_bsize={}_utime={}'.format(_max_episode, _learning_rate, _batch_size,
+    #                                                                  _update_time))
     best_reward = -np.inf
     learn_step = 0
     epsilon = 0.1
     epsilon_min = 0.01
-    decay_factor = 0.99995
+    decay_factor = 0.9995
     best_actions = None
     best_rewards = None
     best_states = None
+    loss = 0
     for i_episode in range(_max_episode):
         state = _env.reset()
         step = 0
@@ -111,6 +112,8 @@ def run_dqn(_env, _approximator, _approximator_target, _batch_size, _max_episode
                 action = torch.argmax(out).data.item()
 
             next_state, reward, done, _ = _env.step(action)
+            # map to [-1,1]
+            # reward = (reward + 1) * 2 - 1
 
             actions.append(action)
             rewards.append(reward)
@@ -119,9 +122,12 @@ def run_dqn(_env, _approximator, _approximator_target, _batch_size, _max_episode
             state = next_state
             episode_reward += reward
 
-            _memory.push(state, action, next_state, reward)
+            if done:
+                _memory.push(state, action, next_state, reward)
+            else:
+                _memory.push(state, action, next_state, reward)
 
-            if len(_memory) >= _memory_size:  # Start to learn
+            if len(_memory) >= _batch_size:  # Start to learn
                 if learn_step % _update_time == 0:
                     _approximator_target.load_state_dict(_approximator.state_dict())
                 learn_step += 1
@@ -137,25 +143,32 @@ def run_dqn(_env, _approximator, _approximator_target, _batch_size, _max_episode
 
                 ori_q = _approximator(b_s)
                 q = ori_q.gather(1, b_a)
-                # temp = _approximator_target(b_s_).detach()
-                # temp2 = temp.max(1)
-                # temp3 = temp2[0]
-                # temp4 = _gamma * temp3
-                tq = b_r + _gamma * _approximator_target(b_s_).detach().max(1)[0].unsqueeze(1)
-                loss = _approximator.loss_func(q, tq)
+                temp = _approximator_target(b_s_)
+                # temp_zeros = torch.zeros_like(temp)
+                # temp = torch.where(temp > 0, temp_zeros, temp)
+                temp2 = temp.detach()
+                temp3 = temp2.max(1)
+                temp4 = temp3[0]
+                tq = b_r + _gamma * temp4.unsqueeze(1)
+                loss = _approximator.loss_func(q, tq).mean()
                 _approximator.opt.zero_grad()
                 loss.backward()
                 _approximator.opt.step()
-
-                writer.add_scalar('loss', loss.detach().numpy(), learn_step)
+                # writer.add_scalar('loss', loss.detach().numpy(), learn_step)
 
             if done:
-                print('{}/{} Episode Reward={}'.format(i_episode, _max_episode, episode_reward))
-                writer.add_scalar('runs_model/episode_reward', episode_reward, i_episode)
+                print('{}/{} Episode Reward={}  **ACTIONS:{} {} {} {} loss={}'.format(i_episode, _max_episode,
+                                                                                      episode_reward,
+                                                                                      actions.count(0),
+                                                                                      actions.count(1),
+                                                                                      actions.count(2),
+                                                                                      actions.count(3),
+                                                                                      loss))
+                # writer.add_scalar('episode_reward', episode_reward, i_episode)
                 if episode_reward >= best_reward:
                     torch.save(_approximator.state_dict(),
-                               'model/test/lr={}_bsize={}_utime={}.pkl'.format(_learning_rate, _batch_size,
-                                                                               _update_time))
+                               'model/test1/lr={}_bsize={}_utime={}.pkl'.format(_learning_rate, _batch_size,
+                                                                                _update_time))
                     f = open('actions.txt', 'w+')
                     f.write(str(i_episode) + ':' + str(actions) + str(episode_reward) + '\n')
                     f.close()
@@ -164,25 +177,21 @@ def run_dqn(_env, _approximator, _approximator_target, _batch_size, _max_episode
                     best_actions = actions.copy()
                     best_states = states.copy()
                     best_rewards = rewards.copy()
-                break
 
-            if epsilon > epsilon_min:
-                epsilon *= decay_factor
+                if epsilon > epsilon_min:
+                    epsilon *= decay_factor
             step += 1
 
-        if i_episode == _max_episode - 1:
-            torch.save(_approximator.state_dict(),
-                       'model/test/lr={}_bsize={}_utime={}_last.pkl'.format(_learning_rate, _batch_size, _update_time))
-            f = open('actions.txt', 'a+')
-            f.write('**LAST** ' + str(i_episode) + ':' + str(actions) + str(episode_reward))
-            f.close()
-            print('****LAST MODEL****')
+            if i_episode % 10 == 0:
+                torch.save(_approximator.state_dict(),
+                           'model/test1/lr={}_bsize={}_utime={}_each.pkl'.format(_learning_rate, _batch_size,
+                                                                                 _update_time))
     plot_figure(best_actions, best_states, best_rewards)
 
 
 def test_dqn(_env, _net, _path):
-    # _path default: model/relu/lr=0.02_msize=2_last.pkl
     _net.load_state_dict(torch.load(_path))
+    _net.eval()
 
     _s = _env.reset()
     done = False
@@ -213,7 +222,7 @@ def train(_env, _net, _net2, _batch_size, _max_episode, _memory_size, _update_ti
 
 
 def DQN_agent(env, train_mode, batch_size=32, learning_rate=0.02, max_episode=1000, memory_size=2000, update_time=100,
-              gamma=0.9, path='model/test/lr=0.02_msize=32.pkl'):
+              gamma=0.9, path='model/test1/lr=0.0001_bsize=128_utime=200.pkl'):
     net = DeepQNetwork(learning_rate)
     net2 = DeepQNetwork(learning_rate)
     Transition = namedtuple('Transition', ('state', 'action', 'next_state', 'reward'))
@@ -227,5 +236,6 @@ def DQN_agent(env, train_mode, batch_size=32, learning_rate=0.02, max_episode=10
 
 if __name__ == '__main__':
     env = virl.Epidemic()
-    DQN_agent(env, train_mode=False, batch_size=32, learning_rate=0.02, max_episode=1000, memory_size=15000,
-              update_time=100)
+    # todo: learning rate decay
+    DQN_agent(env, train_mode=False, batch_size=128, learning_rate=0.001, max_episode=2000, memory_size=2 ** 17,
+              update_time=200)
